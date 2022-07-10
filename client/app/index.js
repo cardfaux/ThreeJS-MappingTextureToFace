@@ -1,160 +1,73 @@
+/* eslint-disable quotes */
 /* eslint-disable no-console */
 /* eslint-disable no-unused-vars */
 import * as THREE from 'three';
-import imagesLoaded from 'imagesloaded';
-import gsap from 'gsap';
-import FontFaceObserver from 'fontfaceobserver';
-import Scroll from './utils/scroll';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+// import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { EXRLoader } from 'three/examples/jsm/loaders/EXRLoader';
+import disp from '../assets/displacement.exr';
+import normal from '../assets/normal.png';
+import stickers from '../assets/stickers.png';
+
 import fragment from './shaders/fragment.glsl';
 import vertex from './shaders/vertex.glsl';
-import noise from './shaders/noise.glsl';
-
-import ocean from '../assets/ocean.jpg';
-
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import * as dat from 'dat.gui';
+import gsap from 'gsap';
 
 export default class Sketch {
   constructor(options) {
-    this.time = 0;
-    this.container = options.dom;
     this.scene = new THREE.Scene();
 
+    this.container = options.dom;
     this.width = this.container.offsetWidth;
     this.height = this.container.offsetHeight;
-
-    this.camera = new THREE.PerspectiveCamera(70, this.width / this.height, 100, 2000);
-    this.camera.position.z = 600;
-
-    this.camera.fov = 2 * Math.atan(this.height / 2 / 600) * (180 / Math.PI);
-
-    this.renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      alpha: true,
-    });
-
+    this.renderer = new THREE.WebGLRenderer();
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setSize(this.width, this.height);
+    this.renderer.setClearColor(0xeeeeee, 1);
+    this.renderer.physicallyCorrectLights = true;
+    this.renderer.outputEncoding = THREE.sRGBEncoding;
 
     this.container.appendChild(this.renderer.domElement);
 
+    this.camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.001, 1000);
+
+    // var frustumSize = 10;
+    // var aspect = window.innerWidth / window.innerHeight;
+    // this.camera = new THREE.OrthographicCamera( frustumSize * aspect / - 2, frustumSize * aspect / 2, frustumSize / 2, frustumSize / - 2, -1000, 1000 );
+    this.camera.position.set(0, 0, 2);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.time = 0;
 
-    this.images = [...document.querySelectorAll('img')];
+    this.isPlaying = true;
 
-    const fontOpen = new Promise((resolve) => {
-      new FontFaceObserver('Open Sans').load().then(() => {
-        resolve();
-      });
-    });
+    this.ambient = new THREE.AmbientLight(0xffffff, 0.95);
+    this.directional = new THREE.DirectionalLight(0xffffff, 0.75);
 
-    const fontPlayfair = new Promise((resolve) => {
-      new FontFaceObserver('Playfair Display').load().then(() => {
-        resolve();
-      });
-    });
+    this.directional.position.set(0, 1, 1);
 
-    // Preload images
-    const preloadImages = new Promise((resolve, reject) => {
-      imagesLoaded(document.querySelectorAll('img'), { background: true }, resolve);
-    });
+    this.scene.add(this.ambient);
+    this.scene.add(this.directional);
 
-    let allDone = [fontOpen, fontPlayfair, preloadImages];
-    this.currentScroll = 0;
-    this.raycaster = new THREE.Raycaster();
-    this.mouse = new THREE.Vector2();
-
-    Promise.all(allDone).then(() => {
-      this.scroll = new Scroll();
-      this.addImages();
-      this.setPosition();
-
-      this.mouseMovement();
+    new EXRLoader().load(disp, (texture) => {
+      this.displacementTexture = texture;
+      this.addObjects();
       this.resize();
-      this.setupResize();
-      //this.addObjects();
-      this.composerPass();
       this.render();
-      // window.addEventListener('scroll',()=>{
-      //     this.currentScroll = window.scrollY;
-      //     this.setPosition();
-      // })
+      this.setupResize();
+      this.settings();
     });
   }
 
-  composerPass() {
-    this.composer = new EffectComposer(this.renderer);
-    this.renderPass = new RenderPass(this.scene, this.camera);
-    this.composer.addPass(this.renderPass);
-
-    //custom shader pass
-    var counter = 0.0;
-    this.myEffect = {
-      uniforms: {
-        tDiffuse: { value: null },
-        scrollSpeed: { value: null },
-        time: { value: null },
-      },
-      vertexShader: `
-        varying vec2 vUv;
-        void main() {
-          vUv = uv;
-          gl_Position = projectionMatrix 
-            * modelViewMatrix 
-            * vec4( position, 1.0 );
-        }
-        `,
-      fragmentShader: `
-        uniform sampler2D tDiffuse;
-        varying vec2 vUv;
-        uniform float scrollSpeed;
-        uniform float time;
-        ${noise}
-        void main(){
-          vec2 newUV = vUv;
-          float area = smoothstep(1.,0.8,vUv.y)*2. - 1.;
-          float area1 = smoothstep(0.4,0.0,vUv.y);
-          area1 = pow(area1,4.);
-          float noise = 0.5*(cnoise(vec3(vUv*10.,time/5.)) + 1.);
-          float n = smoothstep(0.5,0.51, noise + area/2.);
-          newUV.x -= (vUv.x - 0.5)*0.1*area1*scrollSpeed;
-          gl_FragColor = texture2D( tDiffuse, newUV);
-        //   gl_FragColor = vec4(n,0.,0.,1.);
-        gl_FragColor = mix(vec4(1.),texture2D( tDiffuse, newUV),n);
-        // gl_FragColor = vec4(area,0.,0.,1.);
-        }
-        `,
+  settings() {
+    let that = this;
+    this.settings = {
+      x: 0,
+      y: 0,
     };
-
-    this.customPass = new ShaderPass(this.myEffect);
-    this.customPass.renderToScreen = true;
-
-    this.composer.addPass(this.customPass);
-  }
-
-  mouseMovement() {
-    window.addEventListener(
-      'mousemove',
-      (event) => {
-        this.mouse.x = (event.clientX / this.width) * 2 - 1;
-        this.mouse.y = -(event.clientY / this.height) * 2 + 1;
-
-        // update the picking ray with the camera and mouse position
-        this.raycaster.setFromCamera(this.mouse, this.camera);
-
-        // calculate objects intersecting the picking ray
-        const intersects = this.raycaster.intersectObjects(this.scene.children);
-
-        if (intersects.length > 0) {
-          // console.log(intersects[0]);
-          let obj = intersects[0].object;
-          obj.material.uniforms.hover.value = intersects[0].uv;
-        }
-      },
-      false,
-    );
+    this.gui = new dat.GUI();
+    this.gui.add(this.settings, 'x', -2, 2, 0.01);
+    this.gui.add(this.settings, 'y', -0.5, 0.5, 0.01);
   }
 
   setupResize() {
@@ -169,118 +82,128 @@ export default class Sketch {
     this.camera.updateProjectionMatrix();
   }
 
-  addImages() {
-    this.material = new THREE.ShaderMaterial({
-      uniforms: {
-        time: { value: 0 },
-        uImage: { value: 0 },
-        hover: { value: new THREE.Vector2(0.5, 0.5) },
-        hoverState: { value: 0 },
-        oceanTexture: { value: new THREE.TextureLoader().load(ocean) },
-      },
-      side: THREE.DoubleSide,
-      fragmentShader: fragment,
-      vertexShader: vertex,
-      // wireframe: true
-    });
-
-    this.materials = [];
-
-    this.imageStore = this.images.map((img) => {
-      let bounds = img.getBoundingClientRect();
-
-      let geometry = new THREE.PlaneGeometry(bounds.width, bounds.height, 10, 10);
-      //let texture = new THREE.Texture(img);
-      /*
-      let image = new Image();
-      image.src = img.src;
-      let texture = new THREE.Texture(image);
-      */
-      let CLONED_IMAGE = img.cloneNode(true); // this helped when i set image width in JS
-      let texture = new THREE.Texture(CLONED_IMAGE);
-      texture.needsUpdate = true;
-      // let material = new THREE.MeshBasicMaterial({
-      //     // color: 0xff0000,
-      //     map: texture
-      // })
-
-      let material = this.material.clone();
-
-      img.addEventListener('mouseenter', () => {
-        gsap.to(material.uniforms.hoverState, {
-          duration: 1,
-          value: 1,
-        });
-      });
-      img.addEventListener('mouseout', () => {
-        gsap.to(material.uniforms.hoverState, {
-          duration: 1,
-          value: 0,
-        });
-      });
-
-      this.materials.push(material);
-
-      material.uniforms.uImage.value = texture;
-
-      let mesh = new THREE.Mesh(geometry, material);
-
-      this.scene.add(mesh);
-
-      return {
-        img: img,
-        mesh: mesh,
-        top: bounds.top,
-        left: bounds.left,
-        width: bounds.width,
-        height: bounds.height,
-      };
-    });
-  }
-
-  setPosition() {
-    this.imageStore.forEach((o) => {
-      o.mesh.position.y = this.currentScroll - o.top + this.height / 2 - o.height / 2;
-      o.mesh.position.x = o.left - this.width / 2 + o.width / 2;
-    });
-  }
-
   addObjects() {
-    this.geometry = new THREE.PlaneGeometry(200, 400, 10, 10);
-    // this.geometry = new THREE.SphereBufferGeometry( 0.4, 40,40 );
-    this.material = new THREE.MeshNormalMaterial();
-
+    let that = this;
+    this.diffuse = new THREE.TextureLoader().load(stickers);
     this.material = new THREE.ShaderMaterial({
-      uniforms: {
-        time: { value: 0 },
-        oceanTexture: { value: new THREE.TextureLoader().load(ocean) },
+      extensions: {
+        derivatives: '#extension GL_OES_standard_derivatives : enable',
       },
       side: THREE.DoubleSide,
-      fragmentShader: fragment,
-      vertexShader: vertex,
+      uniforms: {
+        time: { value: 0 },
+        resolution: { value: new THREE.Vector4() },
+      },
       wireframe: true,
+      // transparent: true,
+      vertexShader: vertex,
+      fragmentShader: fragment,
     });
 
-    this.mesh = new THREE.Mesh(this.geometry, this.material);
-    this.scene.add(this.mesh);
+    this.material1 = new THREE.MeshPhongMaterial({
+      transparent: true,
+      side: THREE.DoubleSide,
+      normalMap: new THREE.TextureLoader().load(normal),
+      displacementMap: this.displacementTexture,
+      map: this.diffuse,
+    });
+
+    this.material1.onBeforeCompile = (shader) => {
+      shader.uniforms.progress = { value: 0 };
+      shader.uniforms.translate = { value: new THREE.Vector2(0, 0) };
+
+      shader.vertexShader = shader.vertexShader.replace(
+        `#include <clipping_planes_pars_vertex>`,
+
+        `
+        #include <clipping_planes_pars_vertex> 
+        varying vec2 vDisplacementUV;
+        uniform vec2 translate;
+        vec2 rotate(vec2 v, float a) {
+          float s = sin(a);
+          float c = cos(a);
+          mat2 m = mat2(c, -s, s, c);
+          return m * v;
+        }
+        float map(float value, float min1, float max1, float min2, float max2) {
+          return min2 + (value - min1) * (max2 - min2) / (max1 - min1);
+        }
+        `,
+      );
+
+      shader.vertexShader = shader.vertexShader.replace(
+        `#include <project_vertex>`,
+
+        `
+        vec2 pos = position.xy * 0.5 * vec2(1., 4.) + vec2(0., 0.);
+
+        float u = fract(pos.x + 0.5);
+        float v = map(pos.y / 2., -1.5, 1.5, 0., 1.);
+
+        vec2 displacementUV = vec2(u,v);
+
+        vDisplacementUV = displacementUV;
+
+        float displacement = (texture2D(displacementMap, displacementUV).r - 0.5) * 2.;
+
+        float radius = 1.4 + 1.25 * displacement;
+
+        vec2 rotatedDisplacement = rotate(vec2(0., radius), 2. * 3.1415 * (pos.x));
+
+        //transformed.z += 0.4 * sin(10. * transformed.x);
+        vec4 mvPosition = vec4(vec3(rotatedDisplacement.x, position.y, rotatedDisplacement.y), 1.0);
+        
+        mvPosition = modelViewMatrix * mvPosition; 
+        gl_Position = projectionMatrix * mvPosition;`,
+      );
+
+      shader.fragmentShader = shader.fragmentShader.replace(
+        `#include <common>`,
+        `#include <common>
+          varying vec2 vDisplacementUV;
+        `,
+      );
+
+      shader.fragmentShader = shader.fragmentShader.replace(
+        `#include <normal_fragment_maps>`,
+        `#include <normal_fragment_maps>
+          normal = texture2D(normalMap, vDisplacementUV).xyz * 2. - 1.;
+        `,
+      );
+
+      this.material1.userData.shader = shader;
+    };
+
+    this.geometry = new THREE.PlaneGeometry(2, 2, 100, 100);
+
+    this.plane = new THREE.Mesh(this.geometry, this.material);
+    this.plane = new THREE.Mesh(this.geometry, this.material1);
+    this.scene.add(this.plane);
+  }
+
+  stop() {
+    this.isPlaying = false;
+  }
+
+  play() {
+    if (!this.isPlaying) {
+      this.render();
+      this.isPlaying = true;
+    }
   }
 
   render() {
+    if (!this.isPlaying) return;
     this.time += 0.05;
-
-    this.scroll.render();
-    this.currentScroll = this.scroll.scrollToRender;
-    this.setPosition();
-
     // this.material.uniforms.time.value = this.time;
-
-    this.materials.forEach((m) => {
-      m.uniforms.time.value = this.time;
-    });
-
-    //this.renderer.render(this.scene, this.camera);
-    this.composer.render();
-    window.requestAnimationFrame(this.render.bind(this));
+    if (this.material1.userData.shader) {
+      this.diffuse.offset.y = this.settings.y;
+      this.diffuse.offset.x = this.settings.y;
+      this.material1.userData.shader.uniforms.translate.value.x = this.settings.x;
+      this.material1.userData.shader.uniforms.translate.value.y = this.settings.y;
+    }
+    requestAnimationFrame(this.render.bind(this));
+    this.renderer.render(this.scene, this.camera);
   }
 }
 

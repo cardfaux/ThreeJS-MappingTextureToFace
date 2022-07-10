@@ -79,7 +79,7 @@ module.exports = {
         ],
       },
       {
-        test: /\.(png|svg|jpg|jpeg|gif|webp)$/i,
+        test: /\.(png|svg|jpg|jpeg|gif|webp|exr)$/i,
         type: 'asset',
         generator: {
           filename: 'images/[name].[hash][ext][query]',
@@ -151,6 +151,7 @@ module.exports = {
       }),
     ],
     minimize: true,
+    // eslint-disable-next-line no-dupe-keys
     minimizer: [new TerserPlugin()],
   },
 };
