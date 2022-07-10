@@ -1,0 +1,6 @@
+build
+coverage
+public
+dist
+__dist
+node_modules

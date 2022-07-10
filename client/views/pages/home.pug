@@ -1,0 +1,106 @@
+extends ../base.pug
+
+//- block variables
+//- 	- var template = 'home'
+
+block content
+	main 
+		div(data-scroll)
+			.page
+				header
+					h1
+						| Ocean
+					img(src="assets/header.jpg" alt="")
+
+				.grid
+					a.item.item_v(href="https://www.livescience.com/octopuses-punch-fish.html")
+						.item__image
+							img(src="assets/1.jpg" alt="")
+							.item__meta 
+								| December 23, 2020
+						h2.item__title 
+							| Octopus punches fish in the head (just because it can)
+						p 
+							| Octopuses sometimes partner with fish to hunt, but the partnership comes with risks (for the fish, that is).
+
+					a.item.item_h(href="https://www.livescience.com/balloon-like-comb-jelly-discovered-puerto-rico.html")
+						.item__image
+							img(src="assets/2.jpg" alt="")
+							.item__meta 
+								| December 01, 2020
+						h2.item__title 
+							| Newfound marine blob looks like 'party balloon' with two strings, scientists say
+						p 
+							| This is the first species NOAA scientists have ever discovered from video footage alone.
+
+					a.item.item_h(href="https://www.livescience.com/largest-recorded-swarm-of-deep-sea-fish.html")
+						.item__image
+							img(src="assets/4.jpg" alt="")
+							.item__meta 
+								| November 26, 2020
+						h2.item__title 
+							| Swarm of eels breaks record
+						p 
+							| Before we start mining for precious metals in the darkness of the deep sea, we might try switching on the light first and observing our surroundings.
+
+					a.item.item_v(href="https://www.livescience.com/mantis-shrimp-property-wars.html")
+						.item__image
+							img(src="assets/3.jpg" alt="")
+							.item__meta 
+								| November 03, 2020
+						h2.item__title 
+							| Mantis shrimp punch down
+						p 
+							| Home-stealers fought the hardest for smaller-than-ideal dens.
+
+					a.item.item_v(href="https://www.livescience.com/megalodon-big-for-a-shark.html")
+						.item__image
+							img(src="assets/1.jpg" alt="")
+							.item__meta 
+								| October 05, 2020
+						h2.item__title 
+							| Megalodon's hugeness
+						p 
+							| Even among its extinct relatives, Megalodon was unequalled in length and mass.
+
+					a.item.item_h(href="https://www.livescience.com/tiny-sunfish-larva.html")
+						.item__image
+							img(src="assets/2.jpg" alt="")
+							.item__meta 
+								| July 27, 2020
+						h2.item__title 
+							| Adorable sunfish
+						p 
+							| Sunfish in the Molidae family are among the biggest fish in the world.
+
+					a.item.item_h(href="https://www.livescience.com/supergiant-isopod-newfound-species.html")
+						.item__image
+							img(src="assets/4.jpg" alt="")
+							.item__meta 
+								| August 18, 2020
+						h2.item__title 
+							| Massive 'Darth Vader' sea bug
+						p 
+							| The newly described species is one of the biggest isopods known to science.
+
+					a.item.item_v(href="https://www.livescience.com/worlds-deepest-octopus.html")
+						.item__image
+							img(src="assets/3.jpg" alt="")
+							.item__meta 
+								| June 01, 2020
+						h2.item__title 
+							| Scientists capture the world's deepest octopus
+						p 
+							| The octopus was found miles beneath the ocean surface.
+
+				footer.footer 
+					p 
+						| &copy; all news from
+						a(href="https://www.livescience.com/topics/ocean")
+					p 
+						| This page was made for 
+						a(href="https://www.awwwards.com/academy/course/merging-webgl-and-html-worlds")
+							| Merging WebGL and HTML course on Awwwards.com
+						| Wish you a good day! =)
+                  
+	#container 
